@@ -16,7 +16,7 @@ public class Jogo extends JFrame {
 
     private JPanel tela;
     private boolean jogando = true;
-    private final int FPS = 1000 / 20;
+    private final int FPS = 1000 / 20; 
 
     private boolean[] controleTecla = new boolean[5];
 
@@ -26,7 +26,7 @@ public class Jogo extends JFrame {
 
     // Atores do Jogo
     private Tanque tanque;
-    private Tiro[] tirosTanque; // Agora é um Array para múltiplos disparos
+    private Tiro[] tirosTanque; 
     private Invader[][] invasores;
     private Invader chefe;
     private Tiro tiroChefe;
@@ -124,7 +124,6 @@ public class Jogo extends JFrame {
         tanque.setAtivo(true);
         tanque.setVel(5);
 
-        // Instanciando dois tiros para o Tanque
         tirosTanque = new Tiro[2];
         for (int i = 0; i < tirosTanque.length; i++) {
             tirosTanque[i] = new Tiro(false);
@@ -149,12 +148,6 @@ public class Jogo extends JFrame {
         }
 
         invasores = new Invader[11][5];
-        for (int i = 0; i < invasores.length; i++) {
-            for (int j = 0; j < invasores[i].length; j++) {
-                invasores[i][j] = new Invader(tipoPorLinha[j]);
-            }
-        }
-        
         iniciarNovaOnda();
     }
 
@@ -166,6 +159,8 @@ public class Jogo extends JFrame {
 
         for (int i = 0; i < invasores.length; i++) {
             for (int j = 0; j < invasores[i].length; j++) {
+                // Correção da Animação: Instancia um novo objeto toda vez que a onda inicia!
+                invasores[i][j] = new Invader(tipoPorLinha[j]);
                 Invader e = invasores[i][j];
                 e.setAtivo(true);
                 e.setPx(i * e.getLargura() + (i + 1) * espacamento);
@@ -205,7 +200,6 @@ public class Jogo extends JFrame {
                 for(int i = 0; i < controleTecla.length; i++) controleTecla[i] = false;
                 carregarJogo();
             } else {
-                dispose();
                 System.exit(0);
                 break;
             }
@@ -228,7 +222,6 @@ public class Jogo extends JFrame {
             }
         }
 
-        // Sistema de Disparo Múltiplo
         if (controleTecla[4]) {
             for (Tiro t : tirosTanque) {
                 if (!t.isAtivo()) {
@@ -236,15 +229,12 @@ public class Jogo extends JFrame {
                     t.setPy(tanque.getPy() - t.getAltura());
                     t.setAtivo(true);
                     if (somTiro != null) somTiro.tocar();
-                    
-                    // Obriga o jogador a apertar o botão novamente para o segundo disparo
                     controleTecla[4] = false; 
                     break;
                 }
             }
         }
 
-        // Movimento e colisão dos tiros do Tanque
         for (Tiro tiroTanque : tirosTanque) {
             if (tiroTanque.isAtivo()) {
                 tiroTanque.incPy(-tiroTanque.getVel());
