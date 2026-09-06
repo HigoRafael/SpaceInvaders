@@ -1,6 +1,5 @@
 package br.com.mvbos.lgj;
 
-import br.com.mvbos.lgj.base.Audio;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -11,25 +10,28 @@ import javax.swing.JPanel;
 import javax.swing.JOptionPane;
 import br.com.mvbos.lgj.base.Util;
 import br.com.mvbos.lgj.base.Elemento;
+import br.com.mvbos.lgj.base.Audio;
 
 public class Jogo extends JFrame {
 
     private JPanel tela;
     private boolean jogando = true;
-    private final int FPS = 1000 / 20; // 50 frames por segundo
+    private final int FPS = 1000 / 20;
 
     private boolean[] controleTecla = new boolean[5];
 
+    // Efeitos Sonoros
+    private Audio somTiro;
+    private Audio somExplosao;
+
     // Atores do Jogo
     private Tanque tanque;
-    private Tiro tiroTanque;
+    private Tiro[] tirosTanque; // Agora é um Array para múltiplos disparos
     private Invader[][] invasores;
     private Invader chefe;
     private Tiro tiroChefe;
     private Tiro[] tirosInimigos;
     private Elemento[] barreiras;
-    private Audio somTiro;
-    private Audio somExplosao;
 
     private Invader.Tipos[] tipoPorLinha = {
         Invader.Tipos.PEQUENO, Invader.Tipos.MEDIO,
@@ -48,7 +50,6 @@ public class Jogo extends JFrame {
     private boolean novaLinha;
     private int dir = 1; 
     
-
     private java.util.Random rand = new java.util.Random();
 
     public Jogo() {
@@ -80,9 +81,12 @@ public class Jogo extends JFrame {
                 }
 
                 tanque.desenha(g2d);
-                tiroTanque.desenha(g2d);
                 chefe.desenha(g2d);
                 tiroChefe.desenha(g2d);
+
+                for (Tiro t : tirosTanque) {
+                    t.desenha(g2d);
+                }
 
                 for (Tiro t : tirosInimigos) {
                     t.desenha(g2d);
@@ -111,19 +115,21 @@ public class Jogo extends JFrame {
     }
 
     private void carregarJogo() {
-        
         somTiro = new Audio("/som/tiro.wav");
         somExplosao = new Audio("/som/explosao.wav");
-        
-        // Constrói e reconstrói os objetos na memória
+
         tanque = new Tanque();
         tanque.setPx(320);
         tanque.setPy(400);
         tanque.setAtivo(true);
         tanque.setVel(5);
 
-        tiroTanque = new Tiro(false);
-        tiroTanque.setVel(10);
+        // Instanciando dois tiros para o Tanque
+        tirosTanque = new Tiro[2];
+        for (int i = 0; i < tirosTanque.length; i++) {
+            tirosTanque[i] = new Tiro(false);
+            tirosTanque[i].setVel(10);
+        }
 
         chefe = new Invader(Invader.Tipos.CHEFE);
         tiroChefe = new Tiro(true);
@@ -170,7 +176,7 @@ public class Jogo extends JFrame {
         tiroChefe.setAtivo(false);
         chefe.setAtivo(false);
         for(Tiro t : tirosInimigos) t.setAtivo(false);
-        tiroTanque.setAtivo(false);
+        for(Tiro t : tirosTanque) t.setAtivo(false);
     }
 
     public void inicia() {
@@ -178,7 +184,6 @@ public class Jogo extends JFrame {
             jogando = true;
             long prxAtualizacao = 0;
             
-            // Loop principal da partida
             while (jogando) {
                 if (System.currentTimeMillis() >= prxAtualizacao) {
                     atualizaJogo();
@@ -187,25 +192,19 @@ public class Jogo extends JFrame {
                 }
             }
             
-            // Quando a partida acaba (jogando = false), desenha o Game Over
             tela.repaint(); 
             
-            // Pergunta ao jogador usando botões (ConfirmDialog)
             int resposta = JOptionPane.showConfirmDialog(this, 
                     "GAME OVER!\nSua pontuação final: " + pontos + "\n\nDeseja jogar novamente?",
                     "Fim de Jogo",
                     JOptionPane.YES_NO_OPTION);
             
             if (resposta == JOptionPane.YES_OPTION) {
-                // Limpa variáveis globais
                 pontos = 0;
                 level = 1;
                 for(int i = 0; i < controleTecla.length; i++) controleTecla[i] = false;
-                
-                // Reconstrói a memória
                 carregarJogo();
             } else {
-                // Encerra a janela e o programa
                 dispose();
                 System.exit(0);
                 break;
@@ -229,27 +228,39 @@ public class Jogo extends JFrame {
             }
         }
 
-        if (controleTecla[4] && !tiroTanque.isAtivo()) {
-            tiroTanque.setPx(tanque.getPx() + tanque.getLargura() / 2 - tiroTanque.getLargura() / 2);
-            tiroTanque.setPy(tanque.getPy() - tiroTanque.getAltura());
-            tiroTanque.setAtivo(true);
-            somTiro.tocar();
+        // Sistema de Disparo Múltiplo
+        if (controleTecla[4]) {
+            for (Tiro t : tirosTanque) {
+                if (!t.isAtivo()) {
+                    t.setPx(tanque.getPx() + tanque.getLargura() / 2 - t.getLargura() / 2);
+                    t.setPy(tanque.getPy() - t.getAltura());
+                    t.setAtivo(true);
+                    if (somTiro != null) somTiro.tocar();
+                    
+                    // Obriga o jogador a apertar o botão novamente para o segundo disparo
+                    controleTecla[4] = false; 
+                    break;
+                }
+            }
         }
 
-        if (tiroTanque.isAtivo()) {
-            tiroTanque.incPy(-tiroTanque.getVel());
-            if (tiroTanque.getPy() < 0) tiroTanque.setAtivo(false);
-            
-            for (int i = 0; i < invasores.length; i++) {
-                for (int j = 0; j < invasores[0].length; j++) {
-                    Invader inv = invasores[i][j];
-                    if (inv.isAtivo() && Util.colide(tiroTanque, inv)) {
-                        inv.setAtivo(false);
-                        tiroTanque.setAtivo(false);
-                        destruidos++;
-                        pontos += inv.getPremio() * level;
-                        somExplosao.tocar();
-                        break;
+        // Movimento e colisão dos tiros do Tanque
+        for (Tiro tiroTanque : tirosTanque) {
+            if (tiroTanque.isAtivo()) {
+                tiroTanque.incPy(-tiroTanque.getVel());
+                if (tiroTanque.getPy() < 0) tiroTanque.setAtivo(false);
+                
+                for (int i = 0; i < invasores.length; i++) {
+                    for (int j = 0; j < invasores[0].length; j++) {
+                        Invader inv = invasores[i][j];
+                        if (inv.isAtivo() && Util.colide(tiroTanque, inv)) {
+                            inv.setAtivo(false);
+                            tiroTanque.setAtivo(false);
+                            destruidos++;
+                            pontos += inv.getPremio() * level;
+                            if (somExplosao != null) somExplosao.tocar();
+                            break;
+                        }
                     }
                 }
             }
@@ -272,8 +283,10 @@ public class Jogo extends JFrame {
         for (Elemento b : barreiras) {
             if (!b.isAtivo()) continue;
             
-            if (tiroTanque.isAtivo() && Util.colide(tiroTanque, b)) {
-                tiroTanque.setAtivo(false); 
+            for (Tiro tiroTanque : tirosTanque) {
+                if (tiroTanque.isAtivo() && Util.colide(tiroTanque, b)) {
+                    tiroTanque.setAtivo(false); 
+                }
             }
             if (tiroChefe.isAtivo() && Util.colide(tiroChefe, b)) {
                 tiroChefe.setAtivo(false);
@@ -382,7 +395,6 @@ public class Jogo extends JFrame {
     private void setaTecla(int tecla, boolean pressionada) {
         switch (tecla) {
             case KeyEvent.VK_ESCAPE:
-                jogando = false;
                 System.exit(0);
                 break;
             case KeyEvent.VK_LEFT:
